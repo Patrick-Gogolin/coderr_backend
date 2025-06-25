@@ -107,6 +107,3 @@ class UserProfileTest(APITestCase):
         
         self.assertIn(business_user.pk, returned_ids)
         self.assertNotIn(customer_user.pk, returned_ids)
-
-
-#### Test für liste der BUsiness profiles erstellen
