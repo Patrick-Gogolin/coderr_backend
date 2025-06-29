@@ -1,6 +1,8 @@
 from django.urls import path
-from offers_app.api.views import OfferListCreateView
+from offers_app.api.views import OfferViewSet
+from rest_framework.routers import DefaultRouter
 
-urlpatterns = [
-    path('offers/', OfferListCreateView.as_view(), name='offer-create'),
-]
+router = DefaultRouter()
+router.register(r'offers', OfferViewSet, basename='offer')
+
+urlpatterns = router.urls
