@@ -1,12 +1,12 @@
 from rest_framework import generics
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated
-from offers_app.models import Offer
-from offers_app.api.serializers import OfferCreateSerializer, OfferListSerializer, OfferDetailSerializer, OfferUpdateSerializer
+from offers_app.models import Offer, OfferDetail
+from offers_app.api.serializers import OfferCreateSerializer, OfferListSerializer, OfferWithDetailsSerializer, OfferUpdateSerializer, OfferDetailSerializer
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
 from rest_framework.pagination import PageNumberPagination
-from offers_app.api.permissions import IsTypeBusiness, IsOwner
+from offers_app.api.permissions import OfferPermission
 from django.db.models import Min, Max
 
 class LargeResultsSetPagination(PageNumberPagination):
@@ -16,7 +16,7 @@ class LargeResultsSetPagination(PageNumberPagination):
 
 class OfferViewSet(ModelViewSet):
     queryset = Offer.objects.all()
-    permission_classes = [IsAuthenticated, IsTypeBusiness | IsOwner]
+    permission_classes = [IsAuthenticated, OfferPermission]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter, filters.SearchFilter]
     search_fields = ['title', 'description']
     ordering_fields = ['updated_at', 'min_price']
@@ -48,5 +48,9 @@ class OfferViewSet(ModelViewSet):
         elif self.action in ['update', 'partial_update']:
             return OfferUpdateSerializer
         elif self.action == 'retrieve':
-            return OfferDetailSerializer
+            return OfferWithDetailsSerializer
         return OfferListSerializer
+
+class OfferDetails(generics.RetrieveAPIView):
+    queryset = OfferDetail.objects.all()
+    serializer_class = OfferDetailSerializer

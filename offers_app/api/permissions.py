@@ -1,12 +1,17 @@
 from rest_framework import permissions
 
-class IsTypeBusiness(permissions.BasePermission):
+class OfferPermission(permissions.BasePermission):
     def has_permission(self, request, view):
-        if request.method != 'POST':
-            return True
-
-        return request.user.userprofile.type == 'business'
+        if not request.user or not request.user.is_authenticated:
+            return False
+        
+        if request.method == 'POST':
+            return hasattr(request.user, 'userprofile') and request.user.userprofile.type == 'business'
+        
+        return True
     
-class IsOwner(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
-        return obj.user == request.user
+        if request.method in ['PUT', 'PATCH', 'DELETE']:
+            return obj.user == request.user
+        
+        return True

@@ -2,13 +2,13 @@ from rest_framework import serializers
 from offers_app.models import Offer, OfferDetail
 
 
-class OfferDetailInputSerializer(serializers.ModelSerializer):
+class OfferDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = OfferDetail
         exclude = ['offer']
 
 class OfferCreateSerializer(serializers.ModelSerializer):
-    details = OfferDetailInputSerializer(many=True)
+    details = OfferDetailSerializer(many=True)
 
     class Meta:
         model = Offer
@@ -72,7 +72,7 @@ class OfferListSerializer(OfferBaseSerializer):
         }
 
 
-class OfferDetailSerializer(OfferBaseSerializer):
+class OfferWithDetailsSerializer(OfferBaseSerializer):
 
     class Meta:
         model = Offer
