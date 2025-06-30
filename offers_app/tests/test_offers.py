@@ -85,3 +85,4 @@ class OfferTest(APITestCase):
         url = reverse('offer-list')
         response = self.client.post(url, offer_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(Offer.objects.count(), 0)
