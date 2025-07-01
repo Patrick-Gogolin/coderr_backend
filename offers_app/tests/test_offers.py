@@ -2,10 +2,8 @@ from rest_framework.test import APITestCase, APIClient
 from django.urls import reverse
 from rest_framework import status
 from offers_app.models import Offer
-from user_auth_app.models import UserProfile
 from django.contrib.auth.models import User
 from rest_framework.authtoken.models import Token
-from profiles_app.api.serializers import UserProfileSerializer
 
 class OfferTest(APITestCase):
     def setUp(self):
@@ -50,6 +48,30 @@ class OfferTest(APITestCase):
                 }
             ]
         }
+    
+    def get_offer_less_than_three_details_data(self):
+        return {
+            "title": "Testangebot",
+            "description": "Ein Angebot für Tests",
+            "details": [
+                {
+                    "title": "Basic-Paket",
+                    "revisions": 2,
+                    "delivery_time_in_days": 3,
+                    "price": 100,
+                    "features": ["Feature 1", "Feature 2"],
+                    "offer_type": "basic"
+                },
+                {
+                    "title": "Standard-Paket",
+                    "revisions": 3,
+                    "delivery_time_in_days": 5,
+                    "price": 200,
+                    "features": ["Feature 1", "Feature 2", "Feature 3"],
+                    "offer_type": "standard"
+                },
+            ]
+        }
         
     def test_post_offer(self):
         offer_data = self.get_offer_data()
@@ -85,4 +107,13 @@ class OfferTest(APITestCase):
         url = reverse('offer-list')
         response = self.client.post(url, offer_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(Offer.objects.count(), 0)
+    
+    def test_post_offer_less_than_three_details(self):
+        offer_data = self.get_offer_less_than_three_details_data()
+        url = reverse('offer-list')
+        response = self.client.post(url, offer_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('non_field_errors', response.data)
+        self.assertEqual(response.data['non_field_errors'][0], "Ein Offer muss mindestens 3 Details haben!")
         self.assertEqual(Offer.objects.count(), 0)
