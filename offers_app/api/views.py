@@ -38,7 +38,7 @@ class OfferViewSet(ModelViewSet):
         
         max_delivery_time_param = self.request.query_params.get('max_delivery_time', None)
         if max_delivery_time_param:
-            queryset = queryset.annotate(max_delivery=Max('details__delivery_time_in_days')).filter(max_delivery__lte=max_delivery_time_param)
+            queryset = queryset.annotate(min_delivery=Min('details__delivery_time_in_days')).filter(min_delivery__lte=max_delivery_time_param)
         
         return queryset.distinct()
 
