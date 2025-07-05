@@ -28,5 +28,3 @@ class OfferDetail(models.Model):
     price = models.IntegerField()
     features = models.JSONField()
     offer_type = models.CharField(max_length=255, choices=OFFER_TYPE_CHOICES)
-
-

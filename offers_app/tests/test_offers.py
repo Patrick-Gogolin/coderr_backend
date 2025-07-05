@@ -346,3 +346,13 @@ class OfferTest(APITestCase):
         self.assertIn('permission', str(patch_response.data['detail']).lower())
         offer = Offer.objects.get(pk=offer_id)
         self.assertNotIn(offer.title, patch_data['title'])
+
+    def test_get_details_for_single_offer(self):
+        offer_id, _ = self.create_offer_and_get_detail_url()
+        offer = Offer.objects.get(pk=offer_id)
+        detail_id = offer.details.first().id
+        get_url = reverse('offer-details', kwargs = {'pk': detail_id})
+        get_response = self.client.get(get_url)
+        self.assertEqual(get_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(get_response.data['id'], detail_id)
+        self.assertTrue(len(get_response.data['features']) > 0)
