@@ -258,7 +258,7 @@ class OfferTest(APITestCase):
         get_response = self.client.get(detail_url)
         self.assertEqual(get_response.status_code, status.HTTP_401_UNAUTHORIZED)
     
-    def create_offer_and_get_deail_url(self):
+    def create_offer_and_get_detail_url(self):
         offer_data = self.get_offer_data()
         list_url = reverse('offer-list')
         post_response = self.client.post(list_url, offer_data, format="json")
@@ -268,19 +268,19 @@ class OfferTest(APITestCase):
         return offer_id, detail_url
 
     def test_delete_single_offer(self):
-        offer_id, detail_url = self.create_offer_and_get_deail_url()
+        offer_id, detail_url = self.create_offer_and_get_detail_url()
         delete_response = self.client.delete(detail_url)
         self.assertEqual(delete_response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(Offer.objects.filter(pk=offer_id).exists())
     
     def test_delete_single_offer_unauthorized(self):
-        offer_id, detail_url = self.create_offer_and_get_deail_url()
+        offer_id, detail_url = self.create_offer_and_get_detail_url()
         self.client.credentials()
         delete_response = self.client.delete(detail_url)
         self.assertEqual(delete_response.status_code, status.HTTP_401_UNAUTHORIZED)
     
     def test_delete_single_offer_not_owner(self):
-        offer_id, detail_url = self.create_offer_and_get_deail_url()
+        offer_id, detail_url = self.create_offer_and_get_detail_url()
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token_customer.key)
         delete_response = self.client.delete(detail_url)
         self.assertEqual(delete_response.status_code, status.HTTP_403_FORBIDDEN)
@@ -288,4 +288,61 @@ class OfferTest(APITestCase):
     
 
     def test_update_single_offer(self):
-        pass
+        offer_id, detail_url = self.create_offer_and_get_detail_url()
+
+        patch_data = {
+            'title': 'Geändertes Angebot',
+            'description': 'Neue Beschreibung',
+            "details": [
+                {
+                    "title": "Updated-Basic-Paket",
+                    "revisions": 5,
+                    "delivery_time_in_days": 2,
+                    "price": 102,
+                    "features": ["Feature A", "Feature B"],
+                    "offer_type": "basic"
+                }
+            ]
+        }
+
+        patch_response = self.client.patch(detail_url, patch_data, format='json')
+        self.assertEqual(patch_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(patch_response.data['title'], patch_data['title'])
+        self.assertEqual(patch_response.data['description'], patch_data['description'])
+        self.assertEqual(patch_response.data['details'][0], patch_data['details'][0])
+    
+    def test_update_single_offer_not_found(self):
+        detail_url = reverse('offer-detail', kwargs={'pk': 999999999999})
+
+        patch_data = {
+            'title': 'Geändertes Angebot',
+            'description': 'Neue Beschreibung',
+        }
+        patch_response = self.client.patch(detail_url, patch_data, format='json')
+        self.assertEqual(patch_response.status_code, status.HTTP_404_NOT_FOUND)
+    
+    def test_update_single_offer_unauthorized(self):
+        offer_id, detail_url = self.create_offer_and_get_detail_url()
+        
+        patch_data = {
+            'title': 'Geändertes Angebot',
+            'description': 'Neue Beschreibung',
+        }
+
+        self.client.credentials()
+        patch_response = self.client.patch(detail_url, patch_data, format='json')
+        self.assertEqual(patch_response.status_code, status.HTTP_401_UNAUTHORIZED)
+    
+    def test_update_single_offer_not_owner(self):
+        offer_id, detail_url = self.create_offer_and_get_detail_url()
+
+        patch_data = {
+            'title': 'Geändertes Angebot',
+            'description': 'Neue Beschreibung',
+        }
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token_customer.key)
+        patch_response = self.client.patch(detail_url, patch_data, format='json')
+        self.assertEqual(patch_response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertIn('permission', str(patch_response.data['detail']).lower())
+        offer = Offer.objects.get(pk=offer_id)
+        self.assertNotIn(offer.title, patch_data['title'])
