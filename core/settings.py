@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'user_auth_app.apps.UserAuthAppConfig',
     'profiles_app',
     'offers_app',
+    'orders_app',
     'django_filters'
     ]
 
