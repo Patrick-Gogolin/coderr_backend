@@ -1,10 +1,16 @@
 from django.urls import path
-from orders_app.views import OrderCreateView, UpdateOrderView
+from orders_app.views import OrderViewSet, OrderCountView
+from rest_framework.routers import DefaultRouter
 
-#router = DefaultRouter()
-#router.register(r'offers', OfferViewSet, basename='offer')
+router = DefaultRouter()
+router.register(r'orders', OrderViewSet, basename='order')
 
-urlpatterns = [
-    path('orders/', OrderCreateView.as_view(), name='order-create'),
-    path('orders/<int:pk>/', UpdateOrderView.as_view(), name='order-update')
+urlpatterns = router.urls + [
+    path('order-count/<int:business_user_id>/', OrderCountView.as_view(), name='order-count')
 ]
+
+
+# urlpatterns = [
+#     path('orders/', ListCreateOrderView.as_view(), name='order-create'),
+#     path('orders/<int:pk>/', UpdateDeleteOrderView.as_view(), name='order-update-delete'),
+# ]
