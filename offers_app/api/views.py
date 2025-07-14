@@ -7,7 +7,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
 from rest_framework.pagination import PageNumberPagination
 from offers_app.api.permissions import OfferPermission
-from django.db.models import Min, Max
+from django.db.models import Min
 
 class LargeResultsSetPagination(PageNumberPagination):
     page_size = 6
