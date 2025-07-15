@@ -1,5 +1,6 @@
 from reviews_app.api.serializers import ReviewSerializer, UpdateReviewSerializer
 from reviews_app.models import Review
+from reviews_app.api.permissions import isUserFromTypeCustomer, isCreatorOfReview
 from rest_framework import generics
 from rest_framework import mixins, viewsets
 from rest_framework.permissions import IsAuthenticated
@@ -15,11 +16,9 @@ class ReviewViewSet(mixins.ListModelMixin,
     
     serializer_class = ReviewSerializer
     queryset = Review.objects.all()
-    permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     ordering_fields = ['updated_at', 'rating']
 
-    
     def get_queryset(self):
         queryset = Review.objects.all()
 
@@ -43,3 +42,11 @@ class ReviewViewSet(mixins.ListModelMixin,
         if self.action == 'partial_update' or self.action == 'update':
             return UpdateReviewSerializer
         return ReviewSerializer
+    
+    def get_permissions(self):
+        if self.action == 'create':
+            return [IsAuthenticated(), isUserFromTypeCustomer()]
+        elif self.action in ['update', 'partial_update', 'destroy']:
+            return [IsAuthenticated(), isCreatorOfReview()]
+        else:
+            return [IsAuthenticated()]
