@@ -1,12 +1,16 @@
 from reviews_app.api.serializers import ReviewSerializer, UpdateReviewSerializer
 from reviews_app.models import Review
+from user_auth_app.models import UserProfile
+from offers_app.models import Offer
 from reviews_app.api.permissions import isUserFromTypeCustomer, isCreatorOfReview
-from rest_framework import generics
+from rest_framework.views import APIView
 from rest_framework import mixins, viewsets
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
+from django.db.models import Avg
+from rest_framework import status
 
 class ReviewViewSet(mixins.ListModelMixin,
                     mixins.CreateModelMixin,
@@ -34,8 +38,6 @@ class ReviewViewSet(mixins.ListModelMixin,
     
     def perform_create(self, serializer):
         user = self.request.user
-        if getattr(user, 'userprofile', None) is None or user.userprofile.type != 'customer':
-            raise PermissionDenied("Only Customers can create reviews.")
         serializer.save(reviewer=user)
     
     def get_serializer_class(self):
@@ -50,3 +52,19 @@ class ReviewViewSet(mixins.ListModelMixin,
             return [IsAuthenticated(), isCreatorOfReview()]
         else:
             return [IsAuthenticated()]
+
+class GeneralInformationView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        review_count = Review.objects.count()
+        average_rating = Review.objects.aggregate(average_rating=Avg('rating'))['average_rating'] or 0
+        business_profile_count = UserProfile.objects.filter(type='business').count()
+        offer_count = Offer.objects.count()
+
+        return Response({
+            'review_count': review_count,
+            'average_rating': average_rating,
+            'business_profile_count': business_profile_count,
+            'offer_count': offer_count
+        }, status=status.HTTP_200_OK)
