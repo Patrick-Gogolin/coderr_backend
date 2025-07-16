@@ -5,7 +5,7 @@ from offers_app.models import Offer, OfferDetail
 class OfferDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = OfferDetail
-        exclude = ['offer']
+        exclude = ['id', 'offer']
 
 class OfferCreateSerializer(serializers.ModelSerializer):
     details = OfferDetailSerializer(many=True)

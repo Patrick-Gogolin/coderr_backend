@@ -183,7 +183,7 @@ class OfferTest(APITestCase):
         prices = [offer['min_price'] for offer in response.data['results']]
         self.assertEqual(prices, sorted(prices))
     
-    def test_get_offers_ordering_updatet_at(self):
+    def test_get_offers_ordering_updated_at(self):
         now = timezone.now()
         post_response = self.create_dummy_offers()
         for i in range(5):
