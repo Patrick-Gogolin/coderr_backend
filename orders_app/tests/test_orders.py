@@ -2,8 +2,7 @@ from rest_framework.test import APITestCase, APIClient
 from django.urls import reverse
 from rest_framework import status
 from orders_app.models import Order
-from offers_app.models import Offer
-from orders_app.api.serializers import OrderSerializer
+from offers_app.models import Offer, OfferDetail
 from django.contrib.auth.models import User
 from rest_framework.authtoken.models import Token
 
@@ -85,4 +84,85 @@ class OrderTest(APITestCase):
 
         order = Order.objects.first()
         self.assertEqual(order.offer_detail.id, offer_detail.id)
+
+    def test_create_order_returns_401_without_authentication(self):
+        self.create_offer_with_details()
+        offer = Offer.objects.get(title="Testangebot 1")
+        offer_detail = offer.details.first()
+        url = reverse('order-list')
+        self.client.credentials()
+        data = {
+            'offer_detail_id': offer_detail.id
+        }
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(response.data['detail'], 'Authentication credentials were not provided.')
+    
+    def test_create_order_returns_403_for_non_customer(self):
+        self.create_offer_with_details()
+        offer = Offer.objects.get(title="Testangebot 1")
+        offer_detail = offer.details.first()
+        data = {
+            'offer_detail_id': offer_detail.id
+        }
+        url = reverse('order-list')
+        self.client.credentials(HTTP_AUTHORIZATION= 'Token ' + self.token_business.key)
+        response= self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data['detail'], 'You do not have permission to perform this action.')
+
+    def test_create_order_returns_400_for_invalid_offer_detail_id(self):
+        self.create_offer_with_details()
+        invalid_id = OfferDetail.objects.order_by('-id').first().id + 1
+        data = {
+            'offer_detail_id': invalid_id
+        }
+        url = reverse('order-list')
+        self.client.credentials(HTTP_AUTHORIZATION = 'Token ' + self.token_customer.key)
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(str(response.data['offer_detail_id'][0]), 'Offer detail with this ID does not exist.')
+
+    def test_create_order_returns_400_if_offer_detail_id_missing(self):
+        url = reverse('order-list')
+        self.client.credentials(HTTP_AUTHORIZATION = 'Token ' + self.token_customer.key)
+
+        response = self.client.post(url, {}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(str(response.data['offer_detail_id'][0]), 'This field is required.')
+    
+    def test_create_order_returns_400_if_offer_detail_id_is_not_integer(self):
+        url = reverse('order-list')
+        self.client.credentials(HTTP_AUTHORIZATION = 'Token ' + self.token_customer.key)
         
+        response = self.client.post(url, {'offer_detail_id': "something"}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(str(response.data['offer_detail_id'][0]), 'A valid integer is required.')
+    
+    def test_get_orders(self):
+        self.create_offer_with_details()
+        url = reverse('order-list')
+        self.client.credentials(HTTP_AUTHORIZATION = 'Token ' + self.token_customer.key)
+
+        for offer in Offer.objects.all():
+            offer_detail_id = offer.details.first().id
+            data = {
+                'offer_detail_id': offer_detail_id
+            }
+            self.client.post(url, data, format='json')
+
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        if len(response.data) > 0:
+            self.assertEqual(len(response.data), Offer.objects.count())
+            self.assertIn('id', response.data[0])
+            self.assertIn('customer_user', response.data[0])
+            self.assertIn('business_user', response.data[0])
+            self.assertIn('title', response.data[0])
+            self.assertIn('revision', response.data[0])
+            self.assertIn('price', response.data[0])
+            self.assertIn('features', response.data[0])
+            self.assertIn('offer_type', response.data[0])
+            self.assertIn('status', response.data[0])
+            self.assertIn('created_at', response.data[0])
+            self.assertIn('updated_at', response.data[0])
