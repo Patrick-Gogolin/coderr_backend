@@ -2,6 +2,7 @@ from rest_framework.test import APITestCase, APIClient
 from django.urls import reverse
 from rest_framework import status
 from orders_app.models import Order
+from orders_app.api.serializers import OrderSerializer, OrderUpdateSerializer
 from offers_app.models import Offer, OfferDetail
 from django.contrib.auth.models import User
 from rest_framework.authtoken.models import Token
@@ -9,6 +10,9 @@ from rest_framework.authtoken.models import Token
 
 class OrderTest(APITestCase):
     def setUp(self):
+        self.admin_user = User.objects.create(username="admin", password="admin123", is_staff=True)
+        self.token_admin = Token.objects.create(user=self.admin_user)
+
         self.user_business = User.objects.create_user(
             username="testbusiness", password="testpassword", email="test@test.de")
         self.user_business.userprofile.type = 'business'
@@ -66,6 +70,17 @@ class OrderTest(APITestCase):
             response = self.client.post(url, offer_data, format='json')
             responses.append(response)
         return responses
+    
+    def create_orders_for_offers(self):
+        self.client.credentials(HTTP_AUTHORIZATION = 'Token ' + self.token_customer.key)
+        url_post = reverse('order-list')
+
+        for offer in Offer.objects.all():
+            offer_detail_id = offer.details.first().id
+            data = {
+                'offer_detail_id': offer_detail_id
+            }
+            self.client.post(url_post, data, format='json')
         
     def test_create_order_successfull(self):
         self.create_offer_with_details() 
@@ -142,27 +157,124 @@ class OrderTest(APITestCase):
     def test_get_orders(self):
         self.create_offer_with_details()
         url = reverse('order-list')
-        self.client.credentials(HTTP_AUTHORIZATION = 'Token ' + self.token_customer.key)
-
-        for offer in Offer.objects.all():
-            offer_detail_id = offer.details.first().id
-            data = {
-                'offer_detail_id': offer_detail_id
-            }
-            self.client.post(url, data, format='json')
+        
+        self.create_orders_for_offers()
 
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        if len(response.data) > 0:
-            self.assertEqual(len(response.data), Offer.objects.count())
-            self.assertIn('id', response.data[0])
-            self.assertIn('customer_user', response.data[0])
-            self.assertIn('business_user', response.data[0])
-            self.assertIn('title', response.data[0])
-            self.assertIn('revision', response.data[0])
-            self.assertIn('price', response.data[0])
-            self.assertIn('features', response.data[0])
-            self.assertIn('offer_type', response.data[0])
-            self.assertIn('status', response.data[0])
-            self.assertIn('created_at', response.data[0])
-            self.assertIn('updated_at', response.data[0])
+
+        orders = Order.objects.all()
+        expected_data = OrderSerializer(orders, many=True).data
+        self.assertListEqual(response.data, expected_data)
+    
+    def test_get_orders_unauthorized(self):
+        url = reverse('order-list')
+        self.client.credentials()
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_delete_order_allowed_for_admin(self):
+        self.create_offer_with_details()
+
+        self.create_orders_for_offers()
+
+        order_id = Order.objects.first().id
+        url_delete = reverse('order-detail', kwargs={'pk': order_id})
+        self.client.credentials(HTTP_AUTHORIZATION = 'Token ' + self.token_admin.key)
+        response = self.client.delete(url_delete)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Order.objects.filter(id=order_id).exists())
+    
+    def test_delete_order_forbidden_for_non_admin(self):
+        self.create_offer_with_details()
+
+        self.create_orders_for_offers()
+
+        order_id = Order.objects.first().id
+        url_delete = reverse('order-detail', kwargs={'pk': order_id})
+        self.client.credentials(HTTP_AUTHORIZATION = 'Token ' + self.token_customer.key)
+        response = self.client.delete(url_delete)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_delete_order_unauthorized(self):
+        self.create_offer_with_details()
+        
+        self.create_orders_for_offers()
+
+        order_id = Order.objects.first().id 
+        url_delete = reverse('order-detail', kwargs={'pk': order_id})
+        self.client.credentials()
+        response = self.client.delete(url_delete)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+    
+    def test_delete_nonexistent_order_returns_404(self):
+        self.client.credentials(HTTP_AUTHORIZATION = 'Token ' + self.token_admin.key)
+        url_delete = reverse('order-detail', kwargs={'pk': 9999999})
+        response = self.client.delete(url_delete)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+    
+    def test_update_order_successfully(self):
+        self.create_offer_with_details()
+
+        self.create_orders_for_offers()
+        order = Order.objects.first()
+
+        self.client.credentials(HTTP_AUTHORIZATION = 'Token ' + self.token_business.key)  
+        url_patch = reverse('order-detail', kwargs={'pk': order.id})
+        data = {
+            "status": "completed"
+        }
+        response = self.client.patch(url_patch, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        order.refresh_from_db()
+        expected_data = OrderUpdateSerializer(order).data
+        self.assertDictEqual(response.data, expected_data)
+    
+    def test_update_order_as_customer(self):
+        self.create_offer_with_details()
+
+        self.create_orders_for_offers()
+        order = Order.objects.first()
+
+        self.client.credentials(HTTP_AUTHORIZATION = 'Token ' + self.token_customer.key)
+        url_patch = reverse('order-detail', kwargs={'pk': order.id})
+        data = {
+            "status": "completed"
+        }
+        response = self.client.patch(url_patch, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        order.refresh_from_db()
+        self.assertNotEqual(order.status, "completed")
+
+    def test_update_order_unauthorized(self):
+        self.create_offer_with_details()
+
+        self.create_orders_for_offers()
+        order = Order.objects.first()
+
+        self.client.credentials()
+        url_patch = reverse('order-detail', kwargs={'pk': order.id})
+        data = {
+            "status": "completed"
+        }
+        response = self.client.patch(url_patch, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        order.refresh_from_db()
+        self.assertNotEqual(order.status, "completed")
+
+    def test_update_order_wrong_data(self):
+        self.create_offer_with_details()
+
+        self.create_orders_for_offers()
+        order = Order.objects.first()
+
+        self.client.credentials(HTTP_AUTHORIZATION = 'Token ' + self.token_business.key)
+        url_patch = reverse('order-detail', kwargs={'pk': order.id})
+        data = {
+            "status": "something"
+        }
+        response = self.client.patch(url_patch, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('status', response.data)
+        self.assertIn('not a valid choice', str(response.data['status'][0]))
