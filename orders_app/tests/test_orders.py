@@ -1,6 +1,7 @@
 from rest_framework.test import APITestCase, APIClient
 from django.urls import reverse
 from rest_framework import status
+from user_auth_app.models import UserProfile
 from orders_app.models import Order
 from orders_app.api.serializers import OrderSerializer, OrderUpdateSerializer
 from offers_app.models import Offer, OfferDetail
@@ -23,6 +24,7 @@ class OrderTest(APITestCase):
         self.user_customer = User.objects.create_user(
             username="testcostumer", password="testpassword", email="test@test.com")
         self.token_customer = Token.objects.create(user=self.user_customer)
+
         self.client.credentials(
             HTTP_AUTHORIZATION='Token ' + self.token_business.key)
         
@@ -278,3 +280,74 @@ class OrderTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('status', response.data)
         self.assertIn('not a valid choice', str(response.data['status'][0]))
+    
+    def test_get_order_count_for_business_user(self):
+        self.create_offer_with_details()
+
+        self.create_orders_for_offers()
+        self.client.credentials(HTTP_AUTHORIZATION = 'Token ' + self.token_business.key)
+        url = reverse('order-count', kwargs={'business_user_id': self.user_business.id})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        expected_count = Order.objects.filter(business_user=self.user_business).count()
+        self.assertEqual(response.data['order_count'], expected_count)
+
+    def test_get_order_count_for_business_user_unauthorized(self):
+        self.create_offer_with_details()
+
+        self.create_orders_for_offers()
+        self.client.credentials()
+        url = reverse('order-count', kwargs={'business_user_id': self.user_business.id})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+    
+    def test_get_order_count_for_business_user_not_existing_id(self):
+        self.create_offer_with_details()
+
+        self.create_orders_for_offers()
+        self.client.credentials(HTTP_AUTHORIZATION = 'Token ' + self.token_business.key)
+        non_existing_business_user_id = UserProfile.objects.filter(type="business").order_by('-user_id').first().user_id + 1
+        url = reverse('order-count', kwargs={'business_user_id': non_existing_business_user_id})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.data['detail'], 'User is not a business user')
+    
+    def test_get_completed_order_count_for_business_user(self):
+        self.create_offer_with_details()
+
+        self.create_orders_for_offers()
+
+        order = Order.objects.first()
+        order.status = 'completed'
+        order.save()
+        
+        self.client.credentials(HTTP_AUTHORIZATION = 'Token ' + self.token_business.key)
+        url = reverse('completed-order-count', kwargs={'business_user_id': self.user_business.id})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        expected_count = Order.objects.filter(business_user=self.user_business, status='completed').count()
+        self.assertEqual(response.data['completed_order_count'], expected_count)
+    
+    def test_get_completed_order_count_for_business_user_unauthorized(self):
+        self.create_offer_with_details()
+
+        self.create_orders_for_offers()
+        self.client.credentials()
+        url = reverse('completed-order-count', kwargs={'business_user_id': self.user_business.id})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+    
+    def test_get_completed_order_count_for_business_user_not_existing_id(self):
+        self.create_offer_with_details()
+
+        self.create_orders_for_offers()
+        self.client.credentials(HTTP_AUTHORIZATION = 'Token ' + self.token_business.key)
+        non_existing_business_user_id = UserProfile.objects.filter(type="business").order_by('-user_id').first().user_id + 1
+        url = reverse('completed-order-count', kwargs={'business_user_id': non_existing_business_user_id})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.data['detail'], 'User is not a business user')
