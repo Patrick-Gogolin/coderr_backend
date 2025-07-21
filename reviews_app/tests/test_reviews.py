@@ -14,12 +14,41 @@ class ReviewTest(APITestCase):
             username='customer', password='customer123', email="customer@web.de")
         self.token_customer = Token.objects.create(user=self.user_customer)
 
+        self.user_customer_one = User.objects.create(
+            username='customer1', password='customer123', email="customer1@web.de")
+        
+        self.user_customer_two = User.objects.create(
+            username='customer2', password='customer123', email="customer2@web.de")
+        
+        self.user_customer_three = User.objects.create(
+            username='customer3', password='customer123', email="customer3@web.de")
+
         self.user_business = User.objects.create(
             username='business', password='business123', email="business@web.de")
         self.user_business.userprofile.type = 'business'
         self.user_business.userprofile.save()
         self.user_business.save()
         self.token_business = Token.objects.create(user=self.user_business)
+
+        self.user_business_one = User.objects.create(
+            username='business1', password='business123', email="business@web.de")
+        self.user_business_one.userprofile.type = 'business'
+        self.user_business_one.userprofile.save()
+        self.user_business_one.save()
+
+        self.user_business_two = User.objects.create(
+            username='business2', password='business123', email="business@web.de")
+        self.user_business_two.userprofile.type = 'business'
+        self.user_business_two.userprofile.save()
+        self.user_business_two.save()
+
+        self.user_business_three = User.objects.create(
+            username='business3', password='business123', email="business@web.de")
+        self.user_business_three.userprofile.type = 'business'
+        self.user_business_three.userprofile.save()
+        self.user_business_three.save()
+
+
 
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token_customer.key)
 
@@ -132,3 +161,37 @@ class ReviewTest(APITestCase):
         response = self.client.post(url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('object does not exist', response.data['business_user'][0])
+    
+    def test_get_review_list(self):
+        url = reverse('review-list')
+        business_users = UserProfile.objects.filter(type='business')
+
+        for i, business_user in enumerate(business_users):
+            Review.objects.create(
+                reviewer=self.user_customer,
+                business_user=business_user.user,
+                rating=(i % 5) + 1,
+                description=f"Alles super {i}"
+            )
+        
+        response = self.client.get(url)
+        reviews = Review.objects.all()
+        expected_data = ReviewSerializer(reviews, many=True).data
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data, expected_data)
+
+        self.assertEqual(len(response.data), business_users.count())
+    
+    def test_get_review_list_empty(self):
+        url = reverse('review-list')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data, [])
+
+    def test_get_reviews_unauthorized(self):
+        url = reverse('review-list')
+        self.client.credentials()
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(response.data['detail'], 'Authentication credentials were not provided.')
