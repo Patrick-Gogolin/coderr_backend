@@ -195,3 +195,37 @@ class ReviewTest(APITestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertEqual(response.data['detail'], 'Authentication credentials were not provided.')
+    
+    def test_get_review_list_filtered_by_business_user(self):
+        url = reverse('review-list')
+        business_users = UserProfile.objects.filter(type='business')
+
+        for i, business_user in enumerate(business_users):
+            Review.objects.create(
+                reviewer=self.user_customer,
+                business_user=business_user.user,
+                rating=(i % 5) + 1,
+                description=f"Alles super {i}"
+            )
+        expected_reviews = Review.objects.filter(business_user_id=self.user_business_two.id).count()
+        response = self.client.get(url, {'business_user_id': self.user_business_two.id})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(all(review['business_user'] == self.user_business_two.id for review in response.data))
+        self.assertEqual(len(response.data), expected_reviews)
+    
+    def test_get_review_list_filtered_by_reviewer(self):
+        url = reverse('review-list')
+        business_users = UserProfile.objects.filter(type='business')
+
+        for i, business_user in enumerate(business_users):
+            Review.objects.create(
+                reviewer=self.user_customer,
+                business_user=business_user.user,
+                rating=(i % 5) + 1,
+                description=f"Alles super {i}"
+            )
+        expected_reviews = Review.objects.filter(reviewer_id=self.user_customer.id).count()
+        response = self.client.get(url, {'reviewer_id': self.user_customer.id})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), expected_reviews)
+        self.assertTrue(all(review['reviewer'] == self.user_customer.id for review in response.data))
