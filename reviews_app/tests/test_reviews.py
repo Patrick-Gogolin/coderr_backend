@@ -48,8 +48,6 @@ class ReviewTest(APITestCase):
         self.user_business_three.userprofile.save()
         self.user_business_three.save()
 
-
-
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token_customer.key)
 
     def test_create_review_successfull(self):
@@ -229,3 +227,85 @@ class ReviewTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), expected_reviews)
         self.assertTrue(all(review['reviewer'] == self.user_customer.id for review in response.data))
+    
+    def test_get_review_list_ordered_by_updated_at(self):
+        url = reverse('review-list')
+        business_users = UserProfile.objects.filter(type='business')
+
+        for i, business_user in enumerate(business_users):
+            Review.objects.create(
+                reviewer=self.user_customer,
+                business_user=business_user.user,
+                rating=(i % 5) + 1,
+                description=f"Alles super {i}"
+            )
+        response = self.client.get(url, {'ordering': '-updated_at'})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        updated_ats = [review['updated_at'] for review in response.data]
+        self.assertEqual(updated_ats, sorted(updated_ats, reverse=True))
+    
+    def test_get_review_list_ordered_by_rating(self):
+        url = reverse('review-list')
+        business_user = UserProfile.objects.filter(type='business').first()
+
+        for rating in [5,4,3,2,1]:
+            Review.objects.create(
+                reviewer= self.user_customer,
+                business_user=business_user.user,
+                rating=rating,
+                description= f"Rating {rating}"
+            )
+        response = self.client.get(url, {'ordering': '-rating'})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        ratings = [review['rating'] for review in response.data]  
+        self.assertEqual(ratings, sorted(ratings, reverse=True))
+        self.assertEqual(len(ratings), 5)
+    
+    def test_delete_review(self):
+        review = Review.objects.create(
+            reviewer=self.user_customer,
+            business_user=self.user_business_one,
+            rating = 5,
+            description= "Everything okay"
+        )
+
+        url = reverse('review-detail', kwargs={'pk': review.id})
+        
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(len(Review.objects.all()), 0)
+        self.assertFalse(Review.objects.filter(id=review.id).exists())
+    
+    def test_delete_review_unauthorized(self):
+        review = Review.objects.create(
+            reviewer=self.user_customer,
+            business_user=self.user_business_one,
+            rating = 5,
+            description= "Everything okay"
+        )
+
+        self.client.credentials()
+        url = reverse('review-detail', kwargs={'pk': review.id})
+        
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(Review.objects.count(), 1)
+        self.assertTrue(Review.objects.filter(id=review.id).exists())
+    
+    def test_delete_review_not_owner(self):
+        review = Review.objects.create(
+            reviewer=self.user_customer,
+            business_user=self.user_business_one,
+            rating = 5,
+            description= "Everything okay"
+        )
+
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token_business.key)
+        url = reverse('review-detail', kwargs={'pk': review.id})
+        
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(Review.objects.count(), 1)
+        self.assertTrue(Review.objects.filter(id=review.id).exists())

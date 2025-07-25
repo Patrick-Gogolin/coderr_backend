@@ -286,7 +286,6 @@ class OfferTest(APITestCase):
         self.assertEqual(delete_response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertTrue(Offer.objects.filter(pk=offer_id).exists())
     
-
     def test_update_single_offer(self):
         offer_id, detail_url = self.create_offer_and_get_detail_url()
 
