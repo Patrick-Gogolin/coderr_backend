@@ -1,4 +1,4 @@
-from rest_framework.test import APITestCase, APIClient
+from rest_framework.test import APITestCase
 from django.urls import reverse
 from rest_framework import status
 from django.contrib.auth.models import User
@@ -49,15 +49,19 @@ class ReviewTest(APITestCase):
         self.user_business_three.save()
 
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token_customer.key)
+    
+    def create_review_payload(self, rating=4, description="Everything okay"):
+        business_user_id = UserProfile.objects.filter(type='business').first().user_id
+        return {
+            "business_user": business_user_id,
+            "rating": rating,
+            "description": description
+        }
 
     def test_create_review_successfull(self):
         url = reverse('review-list')
-        business_user_id = UserProfile.objects.filter(type='business').first().user_id
-        data = {
-            "business_user": business_user_id,
-            "rating": 4,
-            "description": "Alles war toll!"
-        }
+        data = self.create_review_payload()
+
         response = self.client.post(url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         review = Review.objects.first()
@@ -66,12 +70,8 @@ class ReviewTest(APITestCase):
     
     def test_create_review_unauthorized(self):
         url = reverse('review-list')
-        business_user_id = UserProfile.objects.filter(type='business').first().user_id
-        data = {
-            "business_user": business_user_id,
-            "rating": 4,
-            "description": "Alles war toll!"
-        }
+        data = self.create_review_payload()
+
         self.client.credentials()
         response = self.client.post(url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
@@ -81,12 +81,8 @@ class ReviewTest(APITestCase):
     
     def test_create_review_as_business_user(self):
         url = reverse('review-list')
-        business_user_id = UserProfile.objects.filter(type='business').first().user_id
-        data = {
-            "business_user": business_user_id,
-            "rating": 4,
-            "description": "Alles war toll!"
-        }
+        data = self.create_review_payload()
+
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token_business.key)
         response = self.client.post(url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
@@ -109,12 +105,8 @@ class ReviewTest(APITestCase):
     
     def test_create_duplicate_review_fails(self):
         url = reverse('review-list')
-        business_user_id = UserProfile.objects.filter(type='business').first().user_id
-        data = {
-            "business_user": business_user_id,
-            "rating": 4,
-            "description": "Alles war toll!"
-        }
+        data = self.create_review_payload()
+        
         response = self.client.post(url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
