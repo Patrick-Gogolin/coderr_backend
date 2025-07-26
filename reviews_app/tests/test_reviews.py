@@ -4,7 +4,7 @@ from rest_framework import status
 from django.contrib.auth.models import User
 from user_auth_app.models import UserProfile
 from reviews_app.models import Review
-from reviews_app.api.serializers import ReviewSerializer
+from reviews_app.api.serializers import ReviewSerializer, UpdateReviewSerializer
 from rest_framework.authtoken.models import Token
 
 
@@ -16,6 +16,7 @@ class ReviewTest(APITestCase):
 
         self.user_customer_one = User.objects.create(
             username='customer1', password='customer123', email="customer1@web.de")
+        self.token_customer_one = Token.objects.create(user=self.user_customer_one)
         
         self.user_customer_two = User.objects.create(
             username='customer2', password='customer123', email="customer2@web.de")
@@ -106,7 +107,7 @@ class ReviewTest(APITestCase):
     def test_create_duplicate_review_fails(self):
         url = reverse('review-list')
         data = self.create_review_payload()
-        
+
         response = self.client.post(url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
@@ -255,13 +256,16 @@ class ReviewTest(APITestCase):
         self.assertEqual(ratings, sorted(ratings, reverse=True))
         self.assertEqual(len(ratings), 5)
     
-    def test_delete_review(self):
-        review = Review.objects.create(
+    def create_review(self, rating=5):
+        return Review.objects.create(
             reviewer=self.user_customer,
             business_user=self.user_business_one,
-            rating = 5,
+            rating = rating,
             description= "Everything okay"
         )
+    
+    def test_delete_review(self):
+        review = self.create_review()
 
         url = reverse('review-detail', kwargs={'pk': review.id})
         
@@ -271,12 +275,7 @@ class ReviewTest(APITestCase):
         self.assertFalse(Review.objects.filter(id=review.id).exists())
     
     def test_delete_review_unauthorized(self):
-        review = Review.objects.create(
-            reviewer=self.user_customer,
-            business_user=self.user_business_one,
-            rating = 5,
-            description= "Everything okay"
-        )
+        review = self.create_review()
 
         self.client.credentials()
         url = reverse('review-detail', kwargs={'pk': review.id})
@@ -287,12 +286,7 @@ class ReviewTest(APITestCase):
         self.assertTrue(Review.objects.filter(id=review.id).exists())
     
     def test_delete_review_not_owner(self):
-        review = Review.objects.create(
-            reviewer=self.user_customer,
-            business_user=self.user_business_one,
-            rating = 5,
-            description= "Everything okay"
-        )
+        review = self.create_review()
 
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token_business.key)
         url = reverse('review-detail', kwargs={'pk': review.id})
@@ -301,3 +295,93 @@ class ReviewTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(Review.objects.count(), 1)
         self.assertTrue(Review.objects.filter(id=review.id).exists())
+    
+    def test_update_review_full(self):
+         review = self.create_review(4)
+
+         updated_review = {
+                "rating": 5,
+                "description": "Better than expected!"
+            }
+         url = reverse('review-detail', kwargs={'pk': review.id})
+         response = self.client.patch(url, updated_review, format='json')
+         self.assertEqual(response.status_code, status.HTTP_200_OK)
+         review.refresh_from_db()
+         expected_data = UpdateReviewSerializer(review).data
+         self.assertEqual(response.data, expected_data)
+    
+    def test_update_review_partial(self):
+         review = self.create_review(4)
+
+         updated_review = {
+                "rating": 5
+            }
+         
+         url = reverse('review-detail', kwargs={'pk': review.id})
+         response = self.client.patch(url, updated_review, format='json')
+         self.assertEqual(response.status_code, status.HTTP_200_OK)
+         review.refresh_from_db()
+         expected_data = UpdateReviewSerializer(review).data
+         self.assertEqual(response.data, expected_data)
+         
+    def test_update_review_unauthorized(self):
+        review = self.create_review(4)
+
+        updated_review = {
+            "rating": 5
+        }
+
+        self.client.credentials()
+        url = reverse('review-detail', kwargs={'pk': review.id})
+        response = self.client.patch(url, updated_review, format='json')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        review.refresh_from_db()
+        review_after_serializer = UpdateReviewSerializer(review).data
+        self.assertNotEqual(review_after_serializer['rating'], updated_review['rating'])
+        self.assertEqual(review_after_serializer['rating'], 4)
+
+    def test_update_review_not_creator_of_review(self):
+        review = self.create_review(4)
+
+        updated_review = {
+            "rating": 5
+        }
+
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token_customer_one.key)
+        url = reverse('review-detail', kwargs={'pk': review.id})
+        response = self.client.patch(url, updated_review, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        review.refresh_from_db()
+        review_after_serializer = UpdateReviewSerializer(review).data
+        self.assertNotEqual(review_after_serializer['rating'], updated_review['rating'])
+        self.assertEqual(review_after_serializer['rating'], 4)
+    
+    def test_update_review_with_invalid_rating(self):
+        review = self.create_review(4)
+
+        updated_review = {
+            "rating": 6
+        }
+
+        url = reverse('review-detail', kwargs={'pk': review.id})
+        response = self.client.patch(url, updated_review, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('rating', response.data)
+        self.assertEqual(response.data['rating'][0], 'Rating must be between 1 and 5.')
+        review.refresh_from_db()
+        review_after_serializer = UpdateReviewSerializer(review).data
+        self.assertNotEqual(review_after_serializer['rating'], updated_review['rating'])
+        self.assertEqual(review_after_serializer['rating'], 4)
+
+    def test_get_base_info(self):
+        review_one = self.create_review(4)
+        review_two = self.create_review(5)
+        review_three = self.create_review(3)
+
+        url = reverse('general-information')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('review_count', response.data)
+        self.assertIn('average_rating', response.data)
+        self.assertIn('business_profile_count', response.data)
+        self.assertIn('offer_count', response.data)
