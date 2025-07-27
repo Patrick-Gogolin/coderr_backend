@@ -4,7 +4,6 @@ from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework import status
 from .serializers import RegistrationSerializer, LoginSerializer
-import traceback
 
 
 class RegistrationView(APIView):
@@ -29,8 +28,6 @@ class RegistrationView(APIView):
                 }
                 return Response(data, status=status.HTTP_201_CREATED)
             except Exception as e:
-                print("Error during registration:", e)
-                print(traceback.format_exc())
                 return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         else:
