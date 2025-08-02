@@ -83,7 +83,7 @@ class OfferWithDetailsSerializer(OfferBaseSerializer):
 class OfferDetailPartialUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = OfferDetail
-        fields = ['title', 'revisions', 'delivery_time_in_days', 'price', 'features', 'offer_type']
+        fields = ['id', 'title', 'revisions', 'delivery_time_in_days', 'price', 'features', 'offer_type']
         extra_kwargs = {'offer_type': {'required':True}}
 
 

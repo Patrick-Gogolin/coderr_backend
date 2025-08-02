@@ -7,12 +7,16 @@ from rest_framework import viewsets
 from rest_framework import status, permissions
 from rest_framework.response import Response
 from orders_app.api.permissions import isUserFromTypeCustomer
+from django.db.models import Q
 
 # Create your views here.
 
 class OrderViewSet(viewsets.ModelViewSet):
-    queryset = Order.objects.all()
     permission_classes = [isUserFromTypeCustomer]
+
+    def get_queryset(self):
+        user = self.request.user
+        return Order.objects.filter(Q(customer_user=user) | Q(business_user=user))
 
     def get_serializer_class(self):
         if self.action in ['create', 'list']:

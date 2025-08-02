@@ -5,8 +5,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.pagination import PageNumberPagination
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Min
-
 from offers_app.models import Offer, OfferDetail
+
 from offers_app.api.permissions import OfferPermission
 from offers_app.api.serializers import OfferCreateSerializer, OfferListSerializer, OfferWithDetailsSerializer, OfferUpdateSerializer, OfferDetailSerializer
 
@@ -28,7 +28,7 @@ class OfferViewSet(ModelViewSet):
     def get_queryset(self):
         queryset = Offer.objects.all()
 
-        queryset = queryset.annotate(min_price=Min('details__price')) 
+        queryset = queryset.annotate(min_price=Min('details__price'))
 
         creator_id = self.request.query_params.get('creator_id', None)
         if creator_id:
@@ -55,4 +55,5 @@ class OfferViewSet(ModelViewSet):
 
 class OfferDetails(generics.RetrieveAPIView):
     queryset = OfferDetail.objects.all()
+    permission_classes = [IsAuthenticated]
     serializer_class = OfferDetailSerializer
