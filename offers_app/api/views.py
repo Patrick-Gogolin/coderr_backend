@@ -1,13 +1,15 @@
 from rest_framework import generics
+from rest_framework import filters
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated
-from offers_app.models import Offer, OfferDetail
-from offers_app.api.serializers import OfferCreateSerializer, OfferListSerializer, OfferWithDetailsSerializer, OfferUpdateSerializer, OfferDetailSerializer
-from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters
 from rest_framework.pagination import PageNumberPagination
-from offers_app.api.permissions import OfferPermission
+from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Min
+
+from offers_app.models import Offer, OfferDetail
+from offers_app.api.permissions import OfferPermission
+from offers_app.api.serializers import OfferCreateSerializer, OfferListSerializer, OfferWithDetailsSerializer, OfferUpdateSerializer, OfferDetailSerializer
+
 
 class LargeResultsSetPagination(PageNumberPagination):
     page_size = 6
@@ -26,7 +28,7 @@ class OfferViewSet(ModelViewSet):
     def get_queryset(self):
         queryset = Offer.objects.all()
 
-        queryset = queryset.annotate(min_price=Min('details__price'))
+        queryset = queryset.annotate(min_price=Min('details__price')) 
 
         creator_id = self.request.query_params.get('creator_id', None)
         if creator_id:

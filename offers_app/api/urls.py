@@ -1,6 +1,7 @@
 from django.urls import path
-from offers_app.api.views import OfferViewSet, OfferDetails
 from rest_framework.routers import DefaultRouter
+from offers_app.api.views import OfferViewSet, OfferDetails
+
 
 router = DefaultRouter()
 router.register(r'offers', OfferViewSet, basename='offer')
