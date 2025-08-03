@@ -18,12 +18,18 @@ class LargeResultsSetPagination(PageNumberPagination):
 
 class OfferViewSet(ModelViewSet):
     queryset = Offer.objects.all()
-    permission_classes = [IsAuthenticated, OfferPermission]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter, filters.SearchFilter]
     search_fields = ['title', 'description']
     ordering_fields = ['updated_at', 'min_price']
     ordering = ['updated_at']
     pagination_class = LargeResultsSetPagination
+
+    def get_permissions(self):
+        if self.action == 'retrieve':
+            return [IsAuthenticated()]
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAuthenticated(), OfferPermission()]
+        return []
        
     def get_queryset(self):
         queryset = Offer.objects.all()
