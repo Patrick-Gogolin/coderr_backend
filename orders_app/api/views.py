@@ -9,9 +9,27 @@ from rest_framework.response import Response
 from orders_app.api.permissions import isUserFromTypeCustomer
 from django.db.models import Q
 
-# Create your views here.
 
 class OrderViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing `Order` objects.
+
+    Permissions:
+    - Only users with the `customer` user profile type are allowed.
+
+    Behaviors:
+    - `list`: Returns all orders where the user is either the customer or the business.
+    - `create`: Creates a new order for a customer.
+    - `update` / `partial_update`: Updates an existing order.
+    - `retrieve`: Not allowed. Returns 405 Method Not Allowed.
+
+    Queryset:
+    - Filters orders where the current user is either the `customer_user` or `business_user`.
+
+    Serializers:
+    - `OrderSerializer`: Used for create and list actions.
+    - `OrderUpdateSerializer`: Used for update actions.
+    """
     permission_classes = [isUserFromTypeCustomer]
 
     def get_queryset(self):
@@ -29,6 +47,20 @@ class OrderViewSet(viewsets.ModelViewSet):
         return Response({"detail": "Retrieving a single order is not allowed"}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 class OrderCountView(APIView):
+    """
+    API view to get the count of `in_progress` orders for a given business user.
+
+    Permissions:
+    - Requires the user to be authenticated.
+
+    Path Parameters:
+    - `business_user_id`: ID of the business user.
+
+    Returns:
+    - HTTP 200 with the order count if the user is a valid business user.
+    - HTTP 404 if the user does not exist or is not a business user.
+    """
+
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, business_user_id):
@@ -42,6 +74,20 @@ class OrderCountView(APIView):
         return Response({'order_count': count}, status=status.HTTP_200_OK)
 
 class CompletedOrderCountView(APIView):
+    """
+    API view to get the count of `completed` orders for a given business user.
+
+    Permissions:
+    - Requires the user to be authenticated.
+
+    Path Parameters:
+    - `business_user_id`: ID of the business user.
+
+    Returns:
+    - HTTP 200 with the completed order count if the user is a valid business user.
+    - HTTP 404 if the user does not exist or is not a business user.
+    """
+    
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, business_user_id):

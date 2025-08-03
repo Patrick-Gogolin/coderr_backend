@@ -3,6 +3,26 @@ from user_auth_app.models import UserProfile
 from django.contrib.auth.models import User
 
 class UserProfileSerializer(serializers.ModelSerializer):
+    """
+    Serializer for UserProfile model that handles serialization and
+    deserialization of user profile data including nested user fields.
+
+    Fields:
+        - user: Read-only primary key of the associated User.
+        - username: Read-only username from the related User model.
+        - email: Email of the user (validates uniqueness).
+        - first_name: User's first name (optional).
+        - last_name: User's last name (optional).
+        - file, location, tel, description, working_hours, type, created_at: UserProfile specific fields.
+    
+    Validation:
+        - Ensures email uniqueness across users except the current user.
+    
+    Update:
+        - Supports updating nested User fields (email, first_name, last_name).
+        - Updates UserProfile fields accordingly.
+    """
+
     user = serializers.PrimaryKeyRelatedField(read_only=True)
     username = serializers.CharField(source='user.username', read_only=True)
     email = serializers.EmailField(required=False)
@@ -57,6 +77,19 @@ class UserProfileSerializer(serializers.ModelSerializer):
         return data
 
 class CustomerProfileListSerializer(serializers.ModelSerializer):
+    """
+    Serializer to list customer profiles.
+
+    Fields:
+        - user: Primary key of the User.
+        - username: Username of the User (read-only).
+        - first_name: User's first name.
+        - last_name: User's last name.
+        - file: Profile file.
+        - uploaded_at: DateTime when the profile was created.
+        - type: Profile type (should be 'customer').
+    """
+
     username = serializers.CharField(source='user.username', read_only=True)
     first_name = serializers.CharField(source='user.first_name', allow_blank=True, default='')
     last_name = serializers.CharField(source='user.last_name', allow_blank=True, default='')
@@ -70,6 +103,18 @@ class CustomerProfileListSerializer(serializers.ModelSerializer):
         ]
 
 class BusinessProfileListSerializer(serializers.ModelSerializer):
+    """
+    Serializer to list business profiles.
+
+    Fields:
+        - user: Primary key of the User.
+        - username: Username of the User (read-only).
+        - first_name: User's first name.
+        - last_name: User's last name.
+        - file, location, tel, description, working_hours: Business profile specific fields.
+        - type: Profile type (should be 'business').
+    """
+    
     username = serializers.CharField(source='user.username', read_only=True)
     first_name = serializers.CharField(source='user.first_name', allow_blank=True, default='')
     last_name = serializers.CharField(source='user.last_name', allow_blank=True, default='')

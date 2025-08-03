@@ -3,11 +3,27 @@ from offers_app.models import Offer, OfferDetail
 
 
 class OfferDetailSerializer(serializers.ModelSerializer):
+    """
+    Serializer for individual `OfferDetail` objects.
+
+    Excludes the reverse relationship to `Offer` to avoid circular nesting.
+    """
+
     class Meta:
         model = OfferDetail
         exclude = ['offer']
 
 class OfferCreateSerializer(serializers.ModelSerializer):
+    """
+    Serializer for creating a new `Offer` along with multiple `OfferDetail` entries.
+
+    Validations:
+    - Requires at least 3 `OfferDetail` items.
+
+    Fields:
+    - `title`, `image`, `description`, `details`
+    """
+
     details = OfferDetailSerializer(many=True)
 
     class Meta:
@@ -32,6 +48,13 @@ class OfferCreateSerializer(serializers.ModelSerializer):
 
 
 class OfferBaseSerializer(serializers.ModelSerializer):
+    """
+    Base serializer for `Offer` objects with computed fields:
+    - `details`: List of detail links
+    - `min_price`: Minimum price from details
+    - `min_delivery_time`: Minimum delivery time from details
+    """
+
     details = serializers.SerializerMethodField()
     min_price = serializers.SerializerMethodField()
     min_delivery_time = serializers.SerializerMethodField()
@@ -56,6 +79,14 @@ class OfferBaseSerializer(serializers.ModelSerializer):
 
 
 class OfferListSerializer(OfferBaseSerializer):
+    """
+    Serializer for listing multiple `Offer` instances.
+
+    Includes:
+    - `user_details`: Basic information about the offer creator
+    - Aggregated and computed fields from `OfferBaseSerializer`
+    """
+
     user_details = serializers.SerializerMethodField()
 
     class Meta:
@@ -73,6 +104,9 @@ class OfferListSerializer(OfferBaseSerializer):
 
 
 class OfferWithDetailsSerializer(OfferBaseSerializer):
+    """
+    Serializer for retrieving a single `Offer` instance with full details.
+    """
 
     class Meta:
         model = Offer
@@ -81,6 +115,12 @@ class OfferWithDetailsSerializer(OfferBaseSerializer):
         ]
 
 class OfferDetailPartialUpdateSerializer(serializers.ModelSerializer):
+    """
+    Serializer for updating specific fields of an `OfferDetail`.
+
+    `offer_type` is required to uniquely identify which detail to update.
+    """
+
     class Meta:
         model = OfferDetail
         fields = ['id', 'title', 'revisions', 'delivery_time_in_days', 'price', 'features', 'offer_type']
@@ -88,6 +128,14 @@ class OfferDetailPartialUpdateSerializer(serializers.ModelSerializer):
 
 
 class OfferUpdateSerializer(serializers.ModelSerializer):
+    """
+    Serializer for updating an existing `Offer` and its nested `OfferDetail` items.
+
+    Logic:
+    - Updates offer fields if provided.
+    - For each detail, updates it based on the unique `offer_type`.
+    - Raises error if a provided `offer_type` does not match any existing detail.
+    """
     details = OfferDetailPartialUpdateSerializer(many=True, required=False)
 
     class Meta:

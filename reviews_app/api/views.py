@@ -18,6 +18,30 @@ class ReviewViewSet(mixins.ListModelMixin,
                     mixins.UpdateModelMixin,
                     viewsets.GenericViewSet):
     
+    """
+    A viewset for listing, creating, updating, and deleting reviews.
+
+    Features:
+        - List reviews, with optional filtering by `business_user_id` or `reviewer_id`.
+        - Create a new review; only authenticated users of type 'customer' can create.
+        - Update or partially update reviews; only the creator (reviewer) can update.
+        - Delete reviews; only the creator (reviewer) can delete.
+        - Supports ordering by `updated_at` and `rating`.
+
+    Permissions:
+        - Create: authenticated customers only.
+        - Update/Partial Update/Delete: authenticated creators only.
+        - List and other actions: authenticated users.
+
+    Query Parameters:
+        - business_user_id: Filter reviews for a specific business user.
+        - reviewer_id: Filter reviews by the reviewer.
+
+    Serializer:
+        - Uses `ReviewSerializer` for list and create actions.
+        - Uses `UpdateReviewSerializer` for update actions.
+    """
+    
     serializer_class = ReviewSerializer
     queryset = Review.objects.all()
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
@@ -37,15 +61,24 @@ class ReviewViewSet(mixins.ListModelMixin,
         return queryset.distinct()
     
     def perform_create(self, serializer):
+        """
+        Save the reviewer as the current user on creation.
+        """
         user = self.request.user
         serializer.save(reviewer=user)
     
     def get_serializer_class(self):
+        """
+        Return appropriate serializer class based on the action.
+        """
         if self.action == 'partial_update' or self.action == 'update':
             return UpdateReviewSerializer
         return ReviewSerializer
     
     def get_permissions(self):
+        """
+        Return the list of permissions that this view requires.
+        """
         if self.action == 'create':
             return [IsAuthenticated(), isUserFromTypeCustomer()]
         elif self.action in ['update', 'partial_update', 'destroy']:
@@ -54,6 +87,18 @@ class ReviewViewSet(mixins.ListModelMixin,
             return [IsAuthenticated()]
 
 class GeneralInformationView(APIView):
+    """
+    API endpoint that provides general statistics about reviews, business profiles, and offers.
+
+    Permissions:
+        - AllowAny: accessible to all users (authenticated or not).
+
+    Response Data:
+        - review_count: Total number of reviews.
+        - average_rating: Average rating across all reviews (0 if none).
+        - business_profile_count: Total number of business user profiles.
+        - offer_count: Total number of offers.
+    """
     permission_classes = [AllowAny]
 
     def get(self, request):
