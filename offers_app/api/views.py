@@ -3,6 +3,7 @@ from rest_framework import filters
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.exceptions import ValidationError
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Min
 from offers_app.models import Offer, OfferDetail
@@ -85,7 +86,11 @@ class OfferViewSet(ModelViewSet):
         
         max_delivery_time_param = self.request.query_params.get('max_delivery_time', None)
         if max_delivery_time_param:
-            queryset = queryset.annotate(min_delivery=Min('details__delivery_time_in_days')).filter(min_delivery__lte=max_delivery_time_param)
+            try:
+                max_delivery_time_val = int(max_delivery_time_param)
+            except:
+                raise ValidationError({"max_delivery_time": "max_delivery_time has to be a number"})
+            queryset = queryset.annotate(min_delivery=Min('details__delivery_time_in_days')).filter(min_delivery__lte=max_delivery_time_val)
         
         return queryset.distinct()
 

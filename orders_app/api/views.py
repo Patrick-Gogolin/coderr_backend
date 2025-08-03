@@ -34,8 +34,10 @@ class OrderViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        return Order.objects.filter(Q(customer_user=user) | Q(business_user=user))
-
+        if self.action == 'list':
+            return Order.objects.filter(Q(customer_user=user) | Q(business_user=user))
+        return Order.objects.all()
+    
     def get_serializer_class(self):
         if self.action in ['create', 'list']:
             return OrderSerializer

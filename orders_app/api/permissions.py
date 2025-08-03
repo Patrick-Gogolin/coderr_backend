@@ -28,3 +28,9 @@ class isUserFromTypeCustomer(permissions.BasePermission):
             return request.user.is_staff
         
         return False
+    
+    def has_object_permission(self, request, view, obj):
+        user_type = getattr(request.user.userprofile, 'type', None)
+
+        if request.method in ['PUT', 'PATCH']:
+            return user_type == 'business' and obj.business_user == request.user
