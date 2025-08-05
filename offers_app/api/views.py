@@ -3,7 +3,7 @@ from rest_framework import filters
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import ValidationError, PermissionDenied
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Min
 from offers_app.models import Offer, OfferDetail
@@ -60,7 +60,7 @@ class OfferViewSet(ModelViewSet):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsAuthenticated(), OfferPermission()]
         return []
-       
+    
     def get_queryset(self):
         """
         Returns the filtered queryset based on query parameters:
@@ -106,6 +106,8 @@ class OfferViewSet(ModelViewSet):
         elif self.action == 'retrieve':
             return OfferWithDetailsSerializer
         return OfferListSerializer
+
+    
 
 class OfferDetails(generics.RetrieveAPIView):
     """

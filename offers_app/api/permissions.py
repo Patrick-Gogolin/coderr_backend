@@ -28,7 +28,7 @@ class OfferPermission(permissions.BasePermission):
         if not request.user or not request.user.is_authenticated:
             return False
         
-        if request.method == 'POST':
+        if request.method in ['POST', 'PATCH', 'DELETE']:
             return hasattr(request.user, 'userprofile') and request.user.userprofile.type == 'business'
         
         return True
